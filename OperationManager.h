@@ -11,6 +11,9 @@ class OperationManager
         string hashFile(string fileContent);
         void writeObject(string hash, string fileContent);
         void deleteObject(string hash);
+
+    public:
+        void store(vector<string> path);
 };
 
 #endif
