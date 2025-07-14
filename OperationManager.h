@@ -14,6 +14,7 @@ class OperationManager
 
     public:
         void store(vector<string> path);
+        void restore(vector<string> path, bool undo);
 };
 
 #endif

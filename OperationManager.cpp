@@ -78,6 +78,124 @@ void OperationManager::store(vector<string> path)
     indexWrite.close();
 }
 
+void OperationManager::restore(vector<string> path, bool undo)
+{
+    int n = path.size();
+    map <string, string> indexMap;
+    map <string, int> objectsMap;
+    string line;
+    ifstream indexRead(".trackit/index");
+    while(getline(indexRead, line))
+    {
+        string file, hash;
+        istringstream stream(line);
+        stream >> file >> hash;
+        indexMap[file] = hash;
+        objectsMap[hash]++;
+    }
+    indexRead.close();
+
+    for(int i = 0; i<n; i++)
+    {
+        if(fs::is_regular_file(path[i]))
+        {
+            if(indexMap.find(path[i]) == indexMap.end())
+            {
+                cerr << "File not stored / No such file known to trackit : " << path[i] << endl;
+                cout << "Aborting restoring operation !!!" << endl;
+                return;
+            }
+        }
+        else if(fs::is_directory(path[i]))
+        {
+            bool present = false;
+            for(auto& [file, _] : indexMap)
+            {
+                if(file.rfind(path[i] + "/", 0) == 0)
+                {
+                    present = true;
+                    break;
+                }
+            }
+
+            if(!present)
+            {
+                cerr << "No tracked files found inside directory : " << path[i] << endl;
+                cout << "Aborting restoring operation !!!" << endl;
+                return;
+            }
+        }
+    }
+
+    if(undo)
+    {
+        auto undoFile = [&] (string path)
+        {
+            string sourcePath = ".trackit/objects/" + indexMap[path];
+            string destinationPath = path;
+            ifstream srcFile(sourcePath);
+            if(!srcFile)
+            {
+                cerr << "Object not found: " << sourcePath << endl;
+                return;
+            }
+            ofstream destFile(destinationPath);
+            if(!destFile)
+            {
+                cerr << "Unable to write to: " << destinationPath << endl;
+                return;
+            }
+
+            destFile << srcFile.rdbuf();
+
+            srcFile.close();
+            destFile.close();
+        };
+
+        for(int i = 0; i<n; i++)
+        {
+            if(fs::is_regular_file(path[i]))
+            undoFile(path[i]);
+            else if(fs::is_directory(path[i]))
+            {
+                for(auto& entry : fs::recursive_directory_iterator(path[i]))
+                {
+                    if(fs::is_regular_file(entry.path()))
+                    undoFile(entry.path().generic_string());
+                }
+            }   
+        }
+    }
+    else
+    {
+        auto unStageFile = [&] (string path)
+        {
+            string hash = indexMap[path];
+            objectsMap[hash]--;
+            if(!objectsMap[hash])
+            deleteObject(hash);
+            indexMap.erase(path);
+        };
+    
+        for(int i = 0; i<n; i++)
+        {
+            if(fs::is_regular_file(path[i]))
+            unStageFile(path[i]);
+            else if(fs::is_directory(path[i]))
+            {
+                for(auto& entry : fs::recursive_directory_iterator(path[i]))
+                if(fs::is_regular_file(entry.path()))
+                unStageFile(entry.path().generic_string());
+            }
+        }
+    
+        ofstream indexWrite(".trackit/index");
+        for(auto [file, hash] : indexMap)
+        indexWrite << file << " " << hash << endl;
+        indexWrite.close();
+    }
+}
+
 string OperationManager::hashFile(string fileContent)
 {
     unsigned char hash[SHA_DIGEST_LENGTH];
