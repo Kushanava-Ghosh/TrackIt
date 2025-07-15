@@ -16,8 +16,8 @@ class ConfigManager
     
     public:
         ConfigManager();
-        void setConfig(string& key, string& value);
-        string getConfig(string& key);
+        void setConfig(const string& key, const string& value);
+        string getConfig(const string& key);
 };
 
 #endif

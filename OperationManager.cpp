@@ -1,4 +1,5 @@
 #include "OperationManager.h"
+#include "ConfigManager.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -242,14 +243,13 @@ void OperationManager::restore(vector<string> path, bool undo)
 
 void OperationManager::submit(string message, bool amend)
 {
-    ifstream indexRead(".trackit/index");
-    if(!indexRead)
+    if(!message.size())
     {
-        cerr << "Staging Area empty or missing." << endl;
-        cout << "Aborting submit operation !!!";
+        cerr << "Aborting Submit due to Empty Submit Message" << endl;
         return;
     }
 
+    ifstream indexRead(".trackit/index");
     map <string, string> snapshot;
     string line;
     while(getline(indexRead, line))
@@ -260,6 +260,13 @@ void OperationManager::submit(string message, bool amend)
         snapshot[file] = hash;
     }
     indexRead.close();
+
+    if(!snapshot.size())
+    {
+        cerr << "Staging Area Empty or Missing." << endl;
+        cout << "Aborting Submit operation !!!";
+        return;
+    }
 
     string currentBranch = getCurrentBranch();
     string latestSubmit = getLatestSubmit(currentBranch);
@@ -295,6 +302,18 @@ void OperationManager::submit(string message, bool amend)
     clearFile.close();
 
     setLatestSubmit(currentBranch, submitHash);
+    
+    ConfigManager cfg;
+    string author = cfg.getConfig("user.name");
+    string email = cfg.getConfig("user.email");
+    string time = getTimestamp();
+
+    ofstream localLog(".trackit/logs/" + currentBranch, ios::app);
+    localLog << latestSubmit << " " << submitHash << " " << author << " [" << email << "] " << time << " " << "submit";
+    if(!latestSubmit.compare(string(40, '0')))
+    localLog << " (initial)";
+    localLog << ": " << message << endl;
+    localLog.close();
 }
 
 string OperationManager::hashFile(string fileContent)
@@ -335,7 +354,7 @@ string OperationManager::getCurrentBranch()
 
 string OperationManager::getLatestSubmit(string path)
 {
-    ifstream refFile(path);
+    ifstream refFile(".trackit/" + path);
     string submitId;
     getline(refFile, submitId);
     refFile.close();
@@ -345,7 +364,24 @@ string OperationManager::getLatestSubmit(string path)
 
 void OperationManager::setLatestSubmit(string path, string hash)
 {
-    ofstream refFile(path);
+    ofstream refFile(".trackit/" + path);
     refFile << hash;
     refFile.close();
+}
+
+string OperationManager::getTimestamp()
+{
+    time_t now = time(nullptr);
+    tm local = *localtime(&now);
+    tm utc = *gmtime(&now);
+
+    int offset = static_cast<int>(mktime(&local) - mktime(&utc));
+    int hours = offset / 3600;
+    int minutes = abs((offset % 3600) / 60);
+
+    ostringstream stream;
+    stream << put_time(&local, "%d-%m-%YT%H:%M:%S") << " ";
+    stream << (hours >= 0 ? "+" : "-") << setw(2) << setfill('0') << abs(hours) << ":" << setw(2) << setfill('0') << minutes;
+
+    return stream.str();
 }

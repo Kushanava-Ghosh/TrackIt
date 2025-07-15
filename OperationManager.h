@@ -14,6 +14,7 @@ class OperationManager
         string getCurrentBranch();
         string getLatestSubmit(string path);
         void setLatestSubmit(string path, string hash);
+        string getTimestamp();
     public:
         void store(vector<string> path);
         void restore(vector<string> path, bool undo);

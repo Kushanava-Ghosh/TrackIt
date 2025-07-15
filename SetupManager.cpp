@@ -49,7 +49,7 @@ void SetupManager::makeFile(string path)
 void SetupManager::setupMain()
 {
     ofstream headFile(".trackit/HEAD");
-    headFile << ".trackit/refs/heads/main";
+    headFile << "refs/heads/main";
     headFile.close();
 
     ofstream refFile(".trackit/refs/heads/main");

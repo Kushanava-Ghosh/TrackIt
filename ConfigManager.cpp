@@ -63,13 +63,13 @@ void ConfigManager::saveConfig()
     file.close();
 }
 
-void ConfigManager::setConfig(string& key, string& val)
+void ConfigManager::setConfig(const string& key, const string& value)
 {
-    configMap[key] = val;
+    configMap[key] = value;
     saveConfig();
 }
 
-string ConfigManager::getConfig(string& key)
+string ConfigManager::getConfig(const string& key)
 {
     return configMap.count(key) ? configMap[key] : ""; 
 }
