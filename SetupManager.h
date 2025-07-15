@@ -9,6 +9,7 @@ class SetupManager
     private:
         void createDirectory();
         void makeFile(string path);
+        void setupMain();
     public:
         void setup();
 };
