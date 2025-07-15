@@ -196,6 +196,63 @@ void OperationManager::restore(vector<string> path, bool undo)
     }
 }
 
+void OperationManager::submit(string message, bool amend)
+{
+    ifstream indexRead(".trackit/index");
+    if(!indexRead)
+    {
+        cerr << "Staging Area empty or missing." << endl;
+        cout << "Aborting submit operation !!!";
+        return;
+    }
+
+    map <string, string> snapshot;
+    string line;
+    while(getline(indexRead, line))
+    {
+        string file, hash;
+        istringstream stream(line);
+        stream >> file >> hash;
+        snapshot[file] = hash;
+    }
+    indexRead.close();
+
+    string currentBranch = getCurrentBranch();
+    string latestSubmit = getLatestSubmit(currentBranch);
+
+    if(latestSubmit.compare(string(40, '0')))
+    {
+        ifstream submitFile(".trackit/objects/" + latestSubmit);
+        while(getline(submitFile, line))
+        {
+            string file, hash;
+            istringstream stream(line);
+            stream >> file >> hash;
+            if(snapshot.find(file) == snapshot.end())
+            snapshot[file] = hash;
+        }
+        submitFile.close();
+    }
+
+    ofstream indexWrite(".trackit/index");
+    for(auto [file, hash] : snapshot)
+    indexWrite << file << " " << hash << endl;
+    indexWrite.close();
+
+    ifstream indexReadFile(".trackit/index");
+    ostringstream stream;
+    stream << indexReadFile.rdbuf();
+    string submitContent = stream.str();
+    string submitHash = hashFile(submitContent);
+
+    writeObject(submitHash, submitContent);
+    
+    ofstream clearFile(".trackit/index", ios::trunc);
+    clearFile.close();
+
+    setLatestSubmit(currentBranch, submitHash);
+}
+
 string OperationManager::hashFile(string fileContent)
 {
     unsigned char hash[SHA_DIGEST_LENGTH];
@@ -220,4 +277,31 @@ void OperationManager::deleteObject(string hash)
 {
     if(fs::exists(".trackit/objects/" + hash))
     fs::remove(".trackit/objects/" + hash);
+}
+
+string OperationManager::getCurrentBranch()
+{
+    ifstream headFile(".trackit/HEAD");
+    string ref;
+    getline(headFile, ref);
+    headFile.close();
+
+    return ref;
+}
+
+string OperationManager::getLatestSubmit(string path)
+{
+    ifstream refFile(path);
+    string submitId;
+    getline(refFile, submitId);
+    refFile.close();
+
+    return submitId;
+}
+
+void OperationManager::setLatestSubmit(string path, string hash)
+{
+    ofstream refFile(path);
+    refFile << hash;
+    refFile.close();
 }

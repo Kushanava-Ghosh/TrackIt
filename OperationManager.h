@@ -11,10 +11,13 @@ class OperationManager
         string hashFile(string fileContent);
         void writeObject(string hash, string fileContent);
         void deleteObject(string hash);
-
+        string getCurrentBranch();
+        string getLatestSubmit(string path);
+        void setLatestSubmit(string path, string hash);
     public:
         void store(vector<string> path);
         void restore(vector<string> path, bool undo);
+        void submit(string message, bool amend);
 };
 
 #endif
