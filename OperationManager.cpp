@@ -113,11 +113,25 @@ void OperationManager::restore(vector<string> path, bool undo)
     }
     indexRead.close();
 
+    string currentBranch = getCurrentBranch();
+    string latestSubmit = getLatestSubmit(currentBranch);
+
+    ifstream submitFile(".trackit/objects/" + latestSubmit);
+    map <string, string> snapshot;
+    while(getline(submitFile, line))
+    {
+        string file, hash;
+        istringstream stream(line);
+        stream >> file >> hash;
+        snapshot[file] = hash;
+    }
+    submitFile.close();
+
     for(int i = 0; i<n; i++)
     {
         if(fs::is_regular_file(path[i]))
         {
-            if(indexMap.find(path[i]) == indexMap.end())
+            if(indexMap.find(path[i]) == indexMap.end() && snapshot.find(path[i]) == snapshot.end())
             {
                 cerr << "File not stored / No such file known to trackit : " << path[i] << endl;
                 cout << "Aborting restoring operation !!!" << endl;
@@ -126,17 +140,25 @@ void OperationManager::restore(vector<string> path, bool undo)
         }
         else if(fs::is_directory(path[i]))
         {
-            bool present = false;
+            bool presentIndex = false, presentSnapshot = false;
             for(auto& [file, _] : indexMap)
             {
                 if(file.rfind(path[i] + "/", 0) == 0)
                 {
-                    present = true;
+                    presentIndex = true;
                     break;
                 }
             }
 
-            if(!present)
+            for(auto& [file, _] : snapshot)
+            {
+                if(file.rfind(path[i] + "/", 0) == 0)
+                {
+                    presentSnapshot = true;
+                    break;
+                }
+            }
+            if(!(presentIndex || presentSnapshot))
             {
                 cerr << "No tracked files found inside directory : " << path[i] << endl;
                 cout << "Aborting restoring operation !!!" << endl;
@@ -149,7 +171,11 @@ void OperationManager::restore(vector<string> path, bool undo)
     {
         auto undoFile = [&] (string path)
         {
-            string sourcePath = ".trackit/objects/" + indexMap[path];
+            string sourcePath = ".trackit/objects/";
+            if(indexMap.find(path) != indexMap.end())
+            sourcePath += indexMap[path];
+            else if(snapshot.find(path) != snapshot.end())
+            sourcePath += snapshot[path];
             string destinationPath = path;
             ifstream srcFile(sourcePath);
             if(!srcFile)
