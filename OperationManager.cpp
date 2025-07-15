@@ -36,6 +36,20 @@ void OperationManager::store(vector<string> path)
     }
     indexRead.close();
 
+    string currentBranch = getCurrentBranch();
+    string latestSubmit = getLatestSubmit(currentBranch);
+
+    ifstream submitFile(".trackit/objects/" + latestSubmit);
+    map <string, string> snapshot;
+    while(getline(submitFile, line))
+    {
+        string file, hash;
+        istringstream stream(line);
+        stream >> file >> hash;
+        snapshot[file] = hash;
+    }
+    submitFile.close();
+
     auto stageFile = [&] (string path)
     {
         ifstream file(path);
@@ -44,20 +58,24 @@ void OperationManager::store(vector<string> path)
         string content = stream.str();
         string hash = hashFile(content);
         
-        writeObject(hash, content);
-
-        if(indexMap.find(path) != indexMap.end())
+        if(snapshot[path] != hash)
         {
-            if(indexMap[path] != hash)
+            writeObject(hash, content);
+    
+            if(indexMap.find(path) != indexMap.end())
             {
-                objectsMap[indexMap[path]]--;
-                if(!objectsMap[indexMap[path]])
-                deleteObject(indexMap[path]);
+                if(indexMap[path] != hash)
+                {
+                    objectsMap[indexMap[path]]--;
+                    if(!objectsMap[indexMap[path]])
+                    deleteObject(indexMap[path]);
+                }
             }
+    
+            objectsMap[hash]++;
+            indexMap[path] = hash;
         }
-
-        objectsMap[hash]++;
-        indexMap[path] = hash;
+        file.close();
     };
 
     for(int i = 0; i<n; i++)
