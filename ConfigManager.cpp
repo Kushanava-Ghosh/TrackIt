@@ -5,11 +5,16 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#ifdef _WIN32
+#define ENV_ROOT "USERPROFILE"
+#else
+#define ENV_ROOT "HOME"
+#endif
 
 ConfigManager::ConfigManager()
 {
-    string root = getenv("USERPROFILE");
-    configPath = root + "./.trackitconfig";
+    string root = getenv(ENV_ROOT);
+    configPath = root + "/.trackitconfig";
     loadConfig();
 }
 
