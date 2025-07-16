@@ -12,6 +12,15 @@
 
 namespace fs = std::filesystem;
 
+struct LogInfo {
+    string hash;
+    string authorName;
+    string authorEmail;
+    string datetime;
+    string timezone;
+    string message;
+};
+
 void OperationManager::store(vector<string> path)
 {
     int n = path.size();
@@ -315,7 +324,7 @@ void OperationManager::submit(string message, bool amend)
     ofstream localLog(".trackit/logs/" + currentBranch, ios::app);
     localLog << latestSubmit << " " << submitHash << " " << author << " [" << email << "] " << time << " " << "submit";
     if(!latestSubmit.compare(string(40, '0')))
-    localLog << " (initial)";
+    localLog << "(initial)";
     localLog << ": " << message << endl;
     localLog.close();
 }
@@ -450,6 +459,39 @@ void OperationManager::status()
     }
 }
 
+void OperationManager::log()
+{
+    string currentBranch = getCurrentBranch();
+    vector<LogInfo> logs;
+    string line;
+    ifstream file(".trackit/logs/" + currentBranch);
+    while(getline(file, line))
+    {
+        string oldHash, newHash, author, email, dateTime, timeZone, label, message; 
+        istringstream stream(line);
+        stream >> oldHash >> newHash >> author >> email >> dateTime >> timeZone >> label;
+        getline(stream, message);
+        LogInfo entry {
+            newHash,
+            author,
+            email,
+            dateTime,
+            timeZone,
+            message.substr(1)
+        };
+        logs.push_back(entry);
+    }
+    file.close();
+
+    for(auto it = logs.rbegin(); it != logs.rend(); it++)
+    {
+        cout << termcolor::green << "submit " << it->hash << termcolor::reset << endl;
+        cout << termcolor::cyan << "Author: " << it->authorName << " " << it->authorEmail << termcolor::reset << endl;
+        cout << termcolor::blue << "Date: " << parseDateTime(it->datetime) << " " << it->timezone << termcolor::reset << endl;
+        cout << endl << termcolor::magenta << "Message: " << termcolor::yellow << it->message << termcolor::reset << endl << endl;
+    }
+}
+
 string OperationManager::hashFile(string fileContent)
 {
     unsigned char hash[SHA_DIGEST_LENGTH];
@@ -518,4 +560,15 @@ string OperationManager::getTimestamp()
     stream << (hours >= 0 ? "+" : "-") << setw(2) << setfill('0') << abs(hours) << ":" << setw(2) << setfill('0') << minutes;
 
     return stream.str();
+}
+
+string OperationManager::parseDateTime(string dateTime)
+{
+    tm tm{};
+    istringstream stream(dateTime);
+    stream >> get_time(&tm, "%d-%m-%YT%H:%M:%S");
+    time_t time = mktime(&tm);
+    char parsedTime[100];
+    strftime(parsedTime, sizeof(parsedTime), "%a %b %d %H:%M:%S %Y", localtime(&time));
+    return string(parsedTime);
 }

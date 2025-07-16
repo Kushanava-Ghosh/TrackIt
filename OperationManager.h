@@ -15,11 +15,13 @@ class OperationManager
         string getLatestSubmit(string path);
         void setLatestSubmit(string path, string hash);
         string getTimestamp();
+        string parseDateTime(string dateTime);
     public:
         void store(vector<string> path);
         void restore(vector<string> path, bool undo);
         void submit(string message, bool amend);
         void status();
+        void log();
 };
 
 #endif
