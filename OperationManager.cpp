@@ -256,7 +256,7 @@ void OperationManager::restore(vector<string> path, bool undo)
 
 void OperationManager::submit(string message, bool amend)
 {
-    if(!message.size())
+    if(!message.size() && !amend)
     {
         cerr << "Aborting Submit due to Empty Submit Message" << endl;
         return;
@@ -276,9 +276,19 @@ void OperationManager::submit(string message, bool amend)
 
     if(!snapshot.size())
     {
-        cerr << "Staging Area Empty or Missing." << endl;
-        cout << "Aborting Submit operation !!!";
-        return;
+        if(!amend)
+        {
+            cerr << "Staging Area Empty or Missing." << endl;
+            cout << "Aborting Submit operation !!!";
+            return;
+        }
+        else if(!message.size())
+        {
+            cerr << "Nothing to amend !!!" << endl;
+            cout << "  (use \"trackit submit --amend -m <message>\" to change submit message and update the stored changes into previous submit)" << endl;
+            cout << "Aborting Submit operation !!!";
+            return;
+        }
     }
 
     string currentBranch = getCurrentBranch();
@@ -323,8 +333,35 @@ void OperationManager::submit(string message, bool amend)
 
     ofstream localLog(".trackit/logs/" + currentBranch, ios::app);
     localLog << latestSubmit << " " << submitHash << " " << author << " [" << email << "] " << time << " " << "submit";
-    if(!latestSubmit.compare(string(40, '0')))
-    localLog << "(initial)";
+    if(amend)
+    {
+        if(latestSubmit != submitHash)
+        deleteObject(latestSubmit);
+        if(!message.size())
+        {
+            ifstream logFile(".trackit/logs/" + currentBranch);
+            string prevLine, line;
+            while(getline(logFile, line))
+            {
+                if(!line.empty())
+                prevLine = line;
+            }
+            logFile.close();
+
+            string prevHash, newHash, author, email, dateTime, timeZone, label, oldMessage;
+            istringstream stream(prevLine);
+            stream >> prevHash >> newHash >> author >> email >> dateTime >> timeZone >> label;
+            getline(stream, oldMessage);
+            
+            message = oldMessage.substr(1);
+        }
+        localLog << "(amend)";
+    }
+    else
+    {
+        if(!latestSubmit.compare(string(40, '0')))
+        localLog << "(initial)";
+    }
     localLog << ": " << message << endl;
     localLog.close();
 }
