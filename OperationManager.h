@@ -19,6 +19,7 @@ class OperationManager
         void store(vector<string> path);
         void restore(vector<string> path, bool undo);
         void submit(string message, bool amend);
+        void status();
 };
 
 #endif

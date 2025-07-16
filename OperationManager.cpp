@@ -1,5 +1,7 @@
 #include "OperationManager.h"
 #include "ConfigManager.h"
+#define byte WindowsByte
+#include "termcolor/termcolor.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -76,6 +78,8 @@ void OperationManager::store(vector<string> path)
             objectsMap[hash]++;
             indexMap[path] = hash;
         }
+        else
+        indexMap.erase(path);
         file.close();
     };
 
@@ -314,6 +318,136 @@ void OperationManager::submit(string message, bool amend)
     localLog << " (initial)";
     localLog << ": " << message << endl;
     localLog.close();
+}
+
+void OperationManager::status()
+{
+    fs::path curr_path = fs::current_path();
+    vector<string> directory;
+    bool diff = false;
+    for(auto& entry : fs::directory_iterator(curr_path))
+    {
+        if (entry.path().filename() == ".trackit") 
+        continue;
+        directory.push_back(entry.path().filename().generic_string());
+    }
+
+    string currentBranch = getCurrentBranch();
+    string latestSubmit = getLatestSubmit(currentBranch);
+    string prefix = "refs/heads/";
+    cout << "On branch " << currentBranch.substr(prefix.length()) << endl;
+    map <string, string> indexMap, snapshot;
+    string line;
+
+    ifstream indexRead(".trackit/index");
+    while(getline(indexRead, line))
+    {
+        string file, hash;
+        istringstream stream(line);
+        stream >> file >> hash;
+        indexMap[file] = hash;
+    }
+    indexRead.close();
+
+    ifstream submitRead(".trackit/objects/" + latestSubmit);
+    while(getline(submitRead, line))
+    {
+        string file, hash;
+        istringstream stream(line);
+        stream >> file >> hash;
+        snapshot[file] = hash;
+    }
+    submitRead.close();
+
+    map <string, string> liveSnapshot;
+    auto readFile = [&] (string path)
+    {
+        ifstream file(path);
+        ostringstream stream;
+        stream << file.rdbuf();
+        string content = stream.str();
+        string hash = hashFile(content);
+        liveSnapshot[path] = hash;
+        if(!diff)
+        {
+            if(indexMap.find(path) != indexMap.end())
+            {
+                if(indexMap[path] != hash)
+                diff = true;
+                else
+                diff = false;
+            }
+            else if(snapshot.find(path) != snapshot.end() && snapshot[path] != hash)
+            diff = true;
+        }
+    };
+
+    for(auto item : directory)
+    {
+        if(fs::is_regular_file(item))
+        readFile(item);
+        else if(fs::is_directory(item))
+        {
+            for(auto& entry : fs::recursive_directory_iterator(item))
+            {
+                if(fs::is_regular_file(entry.path()))
+                readFile(entry.path().generic_string());
+            }
+        }
+    }
+
+    if(indexMap.size())
+    {
+        cout << "Changes to be submitted:" << endl;
+        cout << "  (use \"trackit restore <file>...\" to unstage files)" << endl;
+        cout << termcolor::green;
+        for(auto [file, _] : indexMap)
+        {
+            if(indexMap[file] == liveSnapshot[file])
+            liveSnapshot.erase(file);
+            if(snapshot.find(file) != snapshot.end())
+            cout << "  \tmodified:    ";
+            else
+            cout << "  \tnew file:    ";
+            cout << file << endl;
+        }
+        cout << termcolor::reset;
+        cout << endl;
+    }
+    
+    if(diff)
+    {
+        cout << "Changes not stored for submit:" << endl;
+        cout << "  (use \"trackit store <file>...\" to update what will be submitted)" << endl;
+        cout << "  (use \"trackit restore --undo <file>...\" to discard changes in working directory)" << endl;
+        cout << termcolor::yellow;
+        for(auto [file, hash] : liveSnapshot)
+        {
+            if(indexMap.find(file) != indexMap.end() && indexMap[file] != hash)
+            cout << "  \tmodified:    " << file << endl;
+            else if(snapshot.find(file) != snapshot.end() && snapshot[file] != hash)
+            cout << "  \tmodified:    " << file << endl;
+        }
+        cout << termcolor::reset;
+        cout << endl;
+    }
+    
+    for(auto [file, _] : snapshot)
+    {
+        if(liveSnapshot.find(file) != liveSnapshot.end())
+        liveSnapshot.erase(file);
+    }
+    
+    if(liveSnapshot.size())
+    {
+        cout << "Untracked files:" << endl;
+        cout << "  (use \"trackit store <file>...\" to include in what will be submitted)" << endl;
+        cout << termcolor::red;
+        for(auto [file, _] : liveSnapshot)
+        cout << "  \t" << file << endl;
+        cout << termcolor::reset;
+        cout << endl;
+    }
 }
 
 string OperationManager::hashFile(string fileContent)
