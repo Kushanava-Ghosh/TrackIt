@@ -29,8 +29,10 @@ void OperationManager::store(vector<string> path)
     {
         if(!fs::exists(path[i]))
         {
+            cout << termcolor::bright_red;
             cerr << "File not found : " << path[i] << endl;
             cout << "Aborting staging operation !!!" << endl;
+            cout << termcolor::reset;
             return;
         }
     }
@@ -148,8 +150,10 @@ void OperationManager::restore(vector<string> path, bool undo)
         {
             if(indexMap.find(path[i]) == indexMap.end() && snapshot.find(path[i]) == snapshot.end())
             {
+                cout << termcolor::bright_red;
                 cerr << "File not stored / No such file known to trackit : " << path[i] << endl;
                 cout << "Aborting restoring operation !!!" << endl;
+                cout << termcolor::reset;
                 return;
             }
         }
@@ -175,8 +179,10 @@ void OperationManager::restore(vector<string> path, bool undo)
             }
             if(!(presentIndex || presentSnapshot))
             {
+                cout << termcolor::bright_red;
                 cerr << "No tracked files found inside directory : " << path[i] << endl;
                 cout << "Aborting restoring operation !!!" << endl;
+                cout << termcolor::reset;
                 return;
             }
         }
@@ -259,7 +265,9 @@ void OperationManager::submit(string message, bool amend)
 {
     if(!message.size() && !amend)
     {
+        cout << termcolor::bright_red;
         cerr << "Aborting Submit due to Empty Submit Message" << endl;
+        cout << termcolor::reset;
         return;
     }
 
@@ -279,15 +287,17 @@ void OperationManager::submit(string message, bool amend)
     {
         if(!amend)
         {
+            cout << termcolor::bright_red;
             cerr << "Staging Area Empty or Missing." << endl;
             cout << "Aborting Submit operation !!!";
+            cout << termcolor::reset;
             return;
         }
         else if(!message.size())
         {
-            cerr << "Nothing to amend !!!" << endl;
-            cout << "  (use \"trackit submit --amend -m <message>\" to change submit message and update the stored changes into previous submit)" << endl;
-            cout << "Aborting Submit operation !!!";
+            cerr << termcolor::bright_red << "Nothing to amend !!!" << endl;
+            cout << termcolor::yellow << "  (use \"trackit submit --amend -m <message>\" to change submit message and update the stored changes into previous submit)" << endl;
+            cout << termcolor::bright_red << "Aborting Submit operation !!!" << termcolor::reset << endl;
             return;
         }
     }
@@ -446,7 +456,7 @@ void OperationManager::status()
     if(indexMap.size())
     {
         cout << "Changes to be submitted:" << endl;
-        cout << "  (use \"trackit restore <file>...\" to unstage files)" << endl;
+        cout << termcolor::cyan << "  (use \"trackit restore <file>...\" to unstage files)" << endl;
         cout << termcolor::green;
         for(auto [file, _] : indexMap)
         {
@@ -465,6 +475,7 @@ void OperationManager::status()
     if(diff)
     {
         cout << "Changes not stored for submit:" << endl;
+        cout << termcolor::cyan;
         cout << "  (use \"trackit store <file>...\" to update what will be submitted)" << endl;
         cout << "  (use \"trackit restore --undo <file>...\" to discard changes in working directory)" << endl;
         cout << termcolor::yellow;
@@ -488,7 +499,7 @@ void OperationManager::status()
     if(liveSnapshot.size())
     {
         cout << "Untracked files:" << endl;
-        cout << "  (use \"trackit store <file>...\" to include in what will be submitted)" << endl;
+        cout << termcolor::cyan << "  (use \"trackit store <file>...\" to include in what will be submitted)" << endl;
         cout << termcolor::red;
         for(auto [file, _] : liveSnapshot)
         cout << "  \t" << file << endl;

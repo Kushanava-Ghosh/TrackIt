@@ -1,4 +1,5 @@
 #include "SetupManager.h"
+#include "termcolor/termcolor.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -14,14 +15,14 @@ void SetupManager::setup()
 
     if(fs::exists(root))
     {
-        cout << "Trackit Repository already exists in " << rootPath << endl;
+        cout << termcolor::bright_red << "Trackit Repository already exists in " << termcolor::yellow << rootPath << endl << termcolor::reset;
         return;
     }
     createDirectory();
 
     setupMain();
 
-    cout << "Empty Trackit Repository setup completed in " << rootPath << endl;
+    cout << termcolor::green << "Empty Trackit Repository setup completed in " << termcolor::yellow << rootPath << endl << termcolor::reset;
 }
 
 void SetupManager::createDirectory()
@@ -43,7 +44,7 @@ void SetupManager::makeFile(string path)
     if(file.is_open())
     file.close();
     else
-    cerr << "Failed to create file : " << path << endl;
+    cerr << termcolor::bright_red << "Failed to create file : " << termcolor::yellow << path << endl << termcolor::reset;
 }
 
 void SetupManager::setupMain()
