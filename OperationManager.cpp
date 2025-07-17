@@ -18,6 +18,7 @@ struct LogInfo {
     string authorEmail;
     string datetime;
     string timezone;
+    string label;
     string message;
 };
 
@@ -514,14 +515,24 @@ void OperationManager::log()
             email,
             dateTime,
             timeZone,
+            label,
             message.substr(1)
         };
         logs.push_back(entry);
     }
     file.close();
 
+    bool skipLog = false;
     for(auto it = logs.rbegin(); it != logs.rend(); it++)
     {
+        if(skipLog)
+        {
+            if(!((it->label).compare("submit(initial):")) || !((it->label).compare("submit:")))
+            skipLog = false;
+            continue;
+        }
+        if(!((it->label).compare("submit(amend):")))
+        skipLog = true;
         cout << termcolor::green << "submit " << it->hash << termcolor::reset << endl;
         cout << termcolor::cyan << "Author: " << it->authorName << " " << it->authorEmail << termcolor::reset << endl;
         cout << termcolor::blue << "Date: " << parseDateTime(it->datetime) << " " << it->timezone << termcolor::reset << endl;
