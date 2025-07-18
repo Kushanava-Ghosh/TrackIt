@@ -119,4 +119,18 @@ void BranchManager::del(string name)
     cout << termcolor::bright_cyan << "Deleted Branch -> " << termcolor::yellow << name << termcolor::bright_blue << " [was " << lastSubmit << "]" << endl << termcolor::reset;
 }
 
+void BranchManager::branch()
+{
+    string currentBranch = UtilsManager::getCurrentBranch();
+    string name = currentBranch.substr(currentBranch.find_last_of('/') + 1);
+
+    string path = ".trackit/refs/heads/";
+    for(auto& entry : fs::directory_iterator(path))
+    {
+        if(!name.compare(entry.path().filename().string()))
+        cout << termcolor::yellow << "--> " << termcolor::green << name << termcolor::reset << endl;
+        else
+        cout << "    " << entry.path().filename().string() << endl;
+    }
+}
 

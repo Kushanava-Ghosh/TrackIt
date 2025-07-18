@@ -9,7 +9,7 @@ class BranchManager
     public:
         void shift(string name, bool branch);
         void del(string name);
-
+        void branch();
 };
 
 #endif
