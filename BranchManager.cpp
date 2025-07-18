@@ -33,7 +33,7 @@ void BranchManager::shift(string name, bool branch)
         refFile.close();
 
         ofstream logFile(".trackit/logs/refs/heads/" + name);
-        logFile << string(40, '0') << " " << latestSubmit << " " << cfg.getConfig("user.name") << " " << cfg.getConfig("user.email") << UtilsManager::getTimestamp() << "branch: Created from " << currentBranch << endl;
+        logFile << string(40, '0') << " " << latestSubmit << " " << cfg.getConfig("user.name") << " [" << cfg.getConfig("user.email") << "] " << UtilsManager::getTimestamp() << " branch: Created from " << currentBranch << endl;
         logFile.close();
         
         ofstream headFile(".trackit/HEAD");
@@ -97,4 +97,26 @@ void BranchManager::shift(string name, bool branch)
         }
     }
 }
+
+void BranchManager::del(string name)
+{
+    if(!fs::exists(".trackit/refs/heads/" + name))
+    {
+        cerr << termcolor::bright_red << "Fatal: Branch -> " << termcolor::yellow << name << termcolor::bright_red << " not found" << endl << termcolor::reset;
+        return;
+    }
+
+    if(!UtilsManager::getCurrentBranch().compare("refs/heads/" + name))
+    {
+        cerr << termcolor::bright_red << "Fatal: Cannot delete branch -> " << termcolor::yellow << name << termcolor::bright_red << " used by worktree" << endl << termcolor::reset;
+        return;
+    }
+
+    string lastSubmit = UtilsManager::getLatestSubmit("refs/heads/" + name);
+
+    fs::remove(".trackit/refs/heads/" + name);
+    fs::remove(".trackit/logs/refs/heads/" + name);
+    cout << termcolor::bright_cyan << "Deleted Branch -> " << termcolor::yellow << name << termcolor::bright_blue << " [was " << lastSubmit << "]" << endl << termcolor::reset;
+}
+
 
