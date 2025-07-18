@@ -513,42 +513,61 @@ void OperationManager::log()
     string currentBranch = UtilsManager::getCurrentBranch();
     vector<LogInfo> logs;
     string line;
-    ifstream file(".trackit/logs/" + currentBranch);
-    while(getline(file, line))
+    bool parent;
+    string parentHash = "", currentHash = "";
+    do
     {
-        string oldHash, newHash, author, email, dateTime, timeZone, label, message; 
-        istringstream stream(line);
-        stream >> oldHash >> newHash >> author >> email >> dateTime >> timeZone >> label;
-        getline(stream, message);
-        LogInfo entry {
-            newHash,
-            author,
-            email,
-            dateTime,
-            timeZone,
-            label,
-            message.substr(1)
-        };
-        logs.push_back(entry);
-    }
-    file.close();
-
-    bool skipLog = false;
-    for(auto it = logs.rbegin(); it != logs.rend(); it++)
-    {
-        if(skipLog)
+        parent = false;
+        ifstream file(".trackit/logs/" + currentBranch);
+        while(getline(file, line))
         {
-            if(!((it->label).compare("submit(initial):")) || !((it->label).compare("submit:")))
-            skipLog = false;
-            continue;
+            string oldHash, newHash, author, email, dateTime, timeZone, label, message; 
+            istringstream stream(line);
+            stream >> oldHash >> newHash >> author >> email >> dateTime >> timeZone >> label;
+            getline(stream, message);
+            LogInfo entry {
+                newHash,
+                author,
+                email,
+                dateTime,
+                timeZone,
+                label,
+                message.substr(1)
+            };
+            if(!label.compare("branch:"))
+            {
+                parent = true;
+                string prefix = "Created from ";
+                currentBranch = entry.message.substr(prefix.length());
+                parentHash = newHash;
+                continue;
+            }
+            if(!oldHash.compare(currentHash) && newHash.compare(currentHash))
+            break;
+            logs.push_back(entry);
         }
-        if(!((it->label).compare("submit(amend):")))
-        skipLog = true;
-        cout << termcolor::green << "submit " << it->hash << termcolor::reset << endl;
-        cout << termcolor::cyan << "Author: " << it->authorName << " " << it->authorEmail << termcolor::reset << endl;
-        cout << termcolor::blue << "Date: " << UtilsManager::parseDateTime(it->datetime) << " " << it->timezone << termcolor::reset << endl;
-        cout << endl << termcolor::magenta << "Message: " << termcolor::yellow << it->message << termcolor::reset << endl << endl;
-    }
+        file.close();
+    
+        bool skipLog = false;
+        for(auto it = logs.rbegin(); it != logs.rend(); it++)
+        {
+            if(skipLog)
+            {
+                if(!((it->label).compare("submit(initial):")) || !((it->label).compare("submit:")))
+                skipLog = false;
+                continue;
+            }
+            if(!((it->label).compare("submit(amend):")))
+            skipLog = true;
+            cout << termcolor::green << "submit " << it->hash << termcolor::reset << endl;
+            cout << termcolor::cyan << "Author: " << it->authorName << " " << it->authorEmail << termcolor::reset << endl;
+            cout << termcolor::blue << "Date: " << UtilsManager::parseDateTime(it->datetime) << " " << it->timezone << termcolor::reset << endl;
+            cout << endl << termcolor::magenta << "Message: " << termcolor::yellow << it->message << termcolor::reset << endl << endl;
+        }
+        logs.clear();
+        currentHash = parentHash;
+    } 
+    while(parent);
 }
 
 void OperationManager::setLatestSubmit(string path, string hash)
