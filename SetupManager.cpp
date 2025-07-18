@@ -1,4 +1,5 @@
 #include "SetupManager.h"
+#define byte WindowsByte
 #include "termcolor/termcolor.hpp"
 #include <filesystem>
 #include <fstream>
@@ -15,7 +16,7 @@ void SetupManager::setup()
 
     if(fs::exists(root))
     {
-        cout << termcolor::bright_red << "Trackit Repository already exists in " << termcolor::yellow << rootPath << endl << termcolor::reset;
+        cout << termcolor::bright_red << "Trackit Repository already exists : " << termcolor::yellow << rootPath << endl << termcolor::reset;
         return;
     }
     createDirectory();

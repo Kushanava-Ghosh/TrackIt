@@ -1,5 +1,6 @@
 #include "OperationManager.h"
 #include "ConfigManager.h"
+#include "UtilsManager.h"
 #define byte WindowsByte
 #include "termcolor/termcolor.hpp"
 #include <iostream>
@@ -7,7 +8,6 @@
 #include <sstream>
 #include <filesystem>
 #include <iomanip>
-#include <openssl/sha.h>
 #include <map>
 
 namespace fs = std::filesystem;
@@ -51,8 +51,8 @@ void OperationManager::store(vector<string> path)
     }
     indexRead.close();
 
-    string currentBranch = getCurrentBranch();
-    string latestSubmit = getLatestSubmit(currentBranch);
+    string currentBranch = UtilsManager::getCurrentBranch();
+    string latestSubmit = UtilsManager::UtilsManager::getLatestSubmit(currentBranch);
 
     ifstream submitFile(".trackit/objects/" + latestSubmit);
     map <string, string> snapshot;
@@ -71,11 +71,11 @@ void OperationManager::store(vector<string> path)
         ostringstream stream;
         stream << file.rdbuf();
         string content = stream.str();
-        string hash = hashFile(content);
+        string hash = UtilsManager::hashFile(content);
         
         if(snapshot[path] != hash)
         {
-            writeObject(hash, content);
+            UtilsManager::writeObject(hash, content);
     
             if(indexMap.find(path) != indexMap.end())
             {
@@ -83,7 +83,7 @@ void OperationManager::store(vector<string> path)
                 {
                     objectsMap[indexMap[path]]--;
                     if(!objectsMap[indexMap[path]])
-                    deleteObject(indexMap[path]);
+                    UtilsManager::deleteObject(indexMap[path]);
                 }
             }
     
@@ -130,8 +130,8 @@ void OperationManager::restore(vector<string> path, bool undo)
     }
     indexRead.close();
 
-    string currentBranch = getCurrentBranch();
-    string latestSubmit = getLatestSubmit(currentBranch);
+    string currentBranch = UtilsManager::getCurrentBranch();
+    string latestSubmit = UtilsManager::getLatestSubmit(currentBranch);
 
     ifstream submitFile(".trackit/objects/" + latestSubmit);
     map <string, string> snapshot;
@@ -238,7 +238,7 @@ void OperationManager::restore(vector<string> path, bool undo)
             string hash = indexMap[path];
             objectsMap[hash]--;
             if(!objectsMap[hash])
-            deleteObject(hash);
+            UtilsManager::deleteObject(hash);
             indexMap.erase(path);
         };
     
@@ -302,8 +302,8 @@ void OperationManager::submit(string message, bool amend)
         }
     }
 
-    string currentBranch = getCurrentBranch();
-    string latestSubmit = getLatestSubmit(currentBranch);
+    string currentBranch = UtilsManager::getCurrentBranch();
+    string latestSubmit = UtilsManager::getLatestSubmit(currentBranch);
 
     if(latestSubmit.compare(string(40, '0')))
     {
@@ -328,9 +328,9 @@ void OperationManager::submit(string message, bool amend)
     ostringstream stream;
     stream << indexReadFile.rdbuf();
     string submitContent = stream.str();
-    string submitHash = hashFile(submitContent);
+    string submitHash = UtilsManager::hashFile(submitContent);
 
-    writeObject(submitHash, submitContent);
+    UtilsManager::writeObject(submitHash, submitContent);
     
     ofstream clearFile(".trackit/index", ios::trunc);
     clearFile.close();
@@ -340,14 +340,14 @@ void OperationManager::submit(string message, bool amend)
     ConfigManager cfg;
     string author = cfg.getConfig("user.name");
     string email = cfg.getConfig("user.email");
-    string time = getTimestamp();
+    string time = UtilsManager::getTimestamp();
 
     ofstream localLog(".trackit/logs/" + currentBranch, ios::app);
     localLog << latestSubmit << " " << submitHash << " " << author << " [" << email << "] " << time << " " << "submit";
     if(amend)
     {
         if(latestSubmit != submitHash)
-        deleteObject(latestSubmit);
+        UtilsManager::deleteObject(latestSubmit);
         if(!message.size())
         {
             ifstream logFile(".trackit/logs/" + currentBranch);
@@ -389,8 +389,8 @@ void OperationManager::status()
         directory.push_back(entry.path().filename().generic_string());
     }
 
-    string currentBranch = getCurrentBranch();
-    string latestSubmit = getLatestSubmit(currentBranch);
+    string currentBranch = UtilsManager::getCurrentBranch();
+    string latestSubmit = UtilsManager::getLatestSubmit(currentBranch);
     string prefix = "refs/heads/";
     cout << "On branch " << currentBranch.substr(prefix.length()) << endl;
     map <string, string> indexMap, snapshot;
@@ -423,7 +423,7 @@ void OperationManager::status()
         ostringstream stream;
         stream << file.rdbuf();
         string content = stream.str();
-        string hash = hashFile(content);
+        string hash = UtilsManager::hashFile(content);
         liveSnapshot[path] = hash;
         if(!diff)
         {
@@ -510,7 +510,7 @@ void OperationManager::status()
 
 void OperationManager::log()
 {
-    string currentBranch = getCurrentBranch();
+    string currentBranch = UtilsManager::getCurrentBranch();
     vector<LogInfo> logs;
     string line;
     ifstream file(".trackit/logs/" + currentBranch);
@@ -546,55 +546,9 @@ void OperationManager::log()
         skipLog = true;
         cout << termcolor::green << "submit " << it->hash << termcolor::reset << endl;
         cout << termcolor::cyan << "Author: " << it->authorName << " " << it->authorEmail << termcolor::reset << endl;
-        cout << termcolor::blue << "Date: " << parseDateTime(it->datetime) << " " << it->timezone << termcolor::reset << endl;
+        cout << termcolor::blue << "Date: " << UtilsManager::parseDateTime(it->datetime) << " " << it->timezone << termcolor::reset << endl;
         cout << endl << termcolor::magenta << "Message: " << termcolor::yellow << it->message << termcolor::reset << endl << endl;
     }
-}
-
-string OperationManager::hashFile(string fileContent)
-{
-    unsigned char hash[SHA_DIGEST_LENGTH];
-    SHA1((const unsigned char*)fileContent.c_str(), fileContent.size(), hash);
-    ostringstream stream;
-    for(int i = 0; i < SHA_DIGEST_LENGTH; i++)
-    stream << hex << setw(2) << setfill('0') << (int)hash[i];
-    return stream.str();
-}
-
-void OperationManager::writeObject(string hash, string fileContent)
-{
-    if(!fs::exists(".trackit/objects/" + hash))
-    {
-        ofstream file(".trackit/objects/" + hash);
-        file << fileContent;
-        file.close();
-    }
-}
-
-void OperationManager::deleteObject(string hash)
-{
-    if(fs::exists(".trackit/objects/" + hash))
-    fs::remove(".trackit/objects/" + hash);
-}
-
-string OperationManager::getCurrentBranch()
-{
-    ifstream headFile(".trackit/HEAD");
-    string ref;
-    getline(headFile, ref);
-    headFile.close();
-
-    return ref;
-}
-
-string OperationManager::getLatestSubmit(string path)
-{
-    ifstream refFile(".trackit/" + path);
-    string submitId;
-    getline(refFile, submitId);
-    refFile.close();
-
-    return submitId;
 }
 
 void OperationManager::setLatestSubmit(string path, string hash)
@@ -602,32 +556,4 @@ void OperationManager::setLatestSubmit(string path, string hash)
     ofstream refFile(".trackit/" + path);
     refFile << hash;
     refFile.close();
-}
-
-string OperationManager::getTimestamp()
-{
-    time_t now = time(nullptr);
-    tm local = *localtime(&now);
-    tm utc = *gmtime(&now);
-
-    int offset = static_cast<int>(mktime(&local) - mktime(&utc));
-    int hours = offset / 3600;
-    int minutes = abs((offset % 3600) / 60);
-
-    ostringstream stream;
-    stream << put_time(&local, "%d-%m-%YT%H:%M:%S") << " ";
-    stream << (hours >= 0 ? "+" : "-") << setw(2) << setfill('0') << abs(hours) << ":" << setw(2) << setfill('0') << minutes;
-
-    return stream.str();
-}
-
-string OperationManager::parseDateTime(string dateTime)
-{
-    tm tm{};
-    istringstream stream(dateTime);
-    stream >> get_time(&tm, "%d-%m-%YT%H:%M:%S");
-    time_t time = mktime(&tm);
-    char parsedTime[100];
-    strftime(parsedTime, sizeof(parsedTime), "%a %b %d %H:%M:%S %Y", localtime(&time));
-    return string(parsedTime);
 }
